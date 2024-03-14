@@ -67,8 +67,7 @@
                   "jsonData": "[{\"label\":\"All\",\"value\":\"all\", \"selected\":true},\r\n{\"label\":\"ResourceType\",\"value\":\"resourcetype\"},\r\n{\"label\":\"ResourceTag\",\"value\":\"resourcetag\"},\r\n{\"label\":\"Scope\",\"value\":\"scope\"},\r\n{\"label\":\"Subscription\",\"value\":\"subscription\"},\r\n{\"label\":\"Assignment\",\"value\":\"assignment\"},\r\n{\"label\":\"Definition\",\"value\":\"definition\"},\r\n{\"label\":\"Exemptions\",\"value\":\"exemptions\"}]",
                   "timeContext": {
                     "durationMs": 86400000
-                  },
-                  "value": "exemptions"
+                  }
                 }
               ],
               "style": "above",
@@ -2066,8 +2065,8 @@
             "type": 3,
             "content": {
               "version": "KqlItem/1.0",
-              "query": "policyresources\r\n| where type =~ 'microsoft.policyinsights/policystates'\r\n| extend AssignmentName = tostring(properties.policyAssignmentName), Initiative = tostring(properties.policySetDefinitionId), \r\n         PolicyDefintion = tostring(properties.policyDefinitionId), Compliance = tostring(properties.complianceState),\r\n         DefinitionReferrence = tostring(properties.policyDefinitionReferenceId), DefinitionCategory = tostring(properties.policySetDefinitionCategory),\r\n         Scope = tostring(properties.policyAssignmentScope), PolicyAction = tostring(properties.policyDefinitionAction),\r\n         ResourceType = tostring(properties.resourceType)\r\n| summarize ['Resource Assignments'] = count(AssignmentName), \r\n            [\"Initiatives Deployed\"] = dcountif(Initiative, isnotnull(Initiative)), \r\n            [\"Policies Deployed\"] = dcountif(PolicyDefintion, isempty(Initiative)),\r\n            [\"Compliant Resources\"] = countif(Compliance == 'Compliant'),\r\n            [\"Non Compliant Resources\"] = countif(Compliance == 'NonCompliant'),\r\n            [\"Exempt Resources\"] = countif(Compliance == \"Exempt\"),\r\n            [\"Assignments\"] = dcount(AssignmentName),\r\n            [\"Scopes\"] = dcount(Scope)\r\n| extend Chart = pack_all()\r\n| project Chart\r\n| mv-expand bagexpansion = array Chart\r\n| project tostring(name = Chart[0]), todouble(val = Chart[1])",
-              "size": 4,
+              "query": "policyresources\r\n| where type =~ 'microsoft.policyinsights/policystates'\r\n| extend AssignmentName = tolower(properties.policyAssignmentName), Initiative = tolower(properties.policySetDefinitionId), \r\n         PolicyDefinition = tolower(properties.policyDefinitionId), Compliance = tostring(properties.complianceState),\r\n         DefinitionReference = tolower(properties.policyDefinitionReferenceId), DefinitionCategory = tostring(properties.policySetDefinitionCategory),\r\n         Scope = tolower(properties.policyAssignmentScope), PolicyAction = tostring(properties.policyDefinitionAction),\r\n         ResourceType = tolower(properties.resourceType)\r\n| summarize ['Assessments'] = count(AssignmentName), \r\n            [\"Initiatives Deployed\"] = dcountif(Initiative, isnotnull(Initiative)), \r\n            [\"Policies Deployed\"] = dcountif(PolicyDefinition, isempty(Initiative)),\r\n            [\"Compliant Assessments\"] = countif(Compliance == 'Compliant'),\r\n            [\"Non Compliant Assessments\"] = countif(Compliance == 'NonCompliant'),\r\n            [\"Exempt Resources\"] = countif(Compliance == \"Exempt\"),\r\n            [\"Assignments\"] = dcount(AssignmentName),\r\n            [\"Scopes\"] = dcount(Scope)\r\n| extend Chart = pack_all()\r\n| project Chart\r\n| mv-expand bagexpansion = array Chart\r\n| project tostring(name = Chart[0]), todouble(val = Chart[1])",
+              "size": 1,
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
               "crossComponentResources": [
@@ -2090,7 +2089,52 @@
                 "sortOrderField": 2
               }
             },
+            "customWidth": "60",
             "name": "query - 1"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "policyresources\r\n| where type == 'microsoft.policyinsights/policystates'\r\n| extend assignmentId = tolower(properties.policyAssignmentId)\r\n| extend initiativeId = tolower(properties.policySetDefinitionId)\r\n| extend policyId = tolower(properties.policyDefinitionId)\r\n| extend complianceState = tostring(properties.complianceState)\r\n| extend resourceType = tolower(properties.resourceType)\r\n| extend stateWeight = tostring(properties.stateWeight)\r\n| extend timeGenerated = tostring(properties.timestamp)\r\n| extend resourceId = tolower(properties.resourceId)\r\n| project resourceId, resourceType, resourceGroup, subscriptionId, assignmentId, initiativeId, policyId, complianceState, stateWeight, timeGenerated\r\n| distinct resourceId, complianceState\r\n| summarize complianceStates=make_list(complianceState) by resourceId\r\n| extend fullComplianceState = iif(complianceStates !contains 'NonCompliant', iif(complianceStates contains 'Exempt' and array_length(complianceStates) == 1, 'Exempt', 'Compliant'), 'NonCompliant')\r\n| summarize dcount(resourceId) by fullComplianceState",
+              "size": 1,
+              "title": "Resource compliance",
+              "queryType": 1,
+              "resourceType": "microsoft.resources/tenants",
+              "crossComponentResources": [
+                "value::tenant"
+              ],
+              "visualization": "piechart",
+              "tileSettings": {
+                "titleContent": {
+                  "columnMatch": "name"
+                },
+                "leftContent": {
+                  "columnMatch": "val",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  }
+                },
+                "showBorder": true,
+                "sortCriteriaField": "val",
+                "sortOrderField": 2
+              },
+              "chartSettings": {
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "Compliant",
+                    "color": "green"
+                  },
+                  {
+                    "seriesName": "NonCompliant",
+                    "color": "redBright"
+                  }
+                ]
+              }
+            },
+            "customWidth": "40",
+            "name": "query - 1 - Copy"
           },
           {
             "type": 3,
@@ -2098,6 +2142,7 @@
               "version": "KqlItem/1.0",
               "query": "policyresources\r\n| extend ComplianceState=tostring(properties['complianceState']), \r\n        resourceId=tostring(properties['resourceId']),\r\n        timestamp=todatetime(tostring(properties['timestamp'])),\r\n        policyDefinitionName=tostring(properties['policyDefinitionName'])\r\n//| where timestamp > ago(1d)\r\n| project subscriptionId, ComplianceState, resourceId, timestamp,policyDefinitionName\r\n| summarize max(timestamp) by subscriptionId, resourceId,ComplianceState,policyDefinitionName\r\n| summarize Total = count(), \r\n            Compliant = countif(ComplianceState == 'Compliant'),\r\n            ['Non-Compliant'] = countif(ComplianceState == 'NonCompliant'),\r\n            Exempt = countif(ComplianceState == 'Exempt'),\r\n            ['Compliance %'] = 100 * countif(ComplianceState == 'Compliant') / count(),\r\n            ['Non-Compliant %'] = 100 * countif(ComplianceState == 'NonCompliant') / count() ,\r\n            ['Exempt %'] = 100 * countif(ComplianceState == 'Exempt') / count() \r\n    by subscriptionId\r\n| order by ['Compliance %'] desc",
               "size": 2,
+              "title": "Policy assessments compliance",
               "queryType": 1,
               "resourceType": "microsoft.resourcegraph/resources",
               "crossComponentResources": [
@@ -2340,8 +2385,8 @@
     }
   ],
   "fallbackResourceIds": [
-    "azure monitor"
+    "Azure Monitor"
   ],
-   "fromTemplateId": "community-Workbooks/byork/PolicyInsights",
+  "fromTemplateId": "community-Workbooks/byork/PolicyInsights",
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
 }
